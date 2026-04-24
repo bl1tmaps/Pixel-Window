@@ -17,7 +17,7 @@ int main() {
     int width = 800, height = 600;
     uint8_t* rgb_buffer = (uint8_t*)malloc(width * height * 3);
     
-    PixelWindow* win = pw_create_window(width, height, "Cross-Platform Pixel Buffer");
+    PixelWindow* win = pw_create_window(width, height, "Cross-Platform Pixel Buffer", false);
     
     int offset = 0;
     while (pw_process_events(win)) {

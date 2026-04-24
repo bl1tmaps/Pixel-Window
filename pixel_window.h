@@ -11,7 +11,7 @@ extern "C" {
 typedef struct PixelWindow PixelWindow;
 
 // Creates a window with the specified dimensions.
-PixelWindow* pw_create_window(int width, int height, const char* title);
+PixelWindow* pw_create_window(int width, int height, const char* title, bool resizable);
 
 // Processes OS events (like closing the window). Returns false if the window is closed.
 bool pw_process_events(PixelWindow* win);
@@ -64,27 +64,33 @@ static LRESULT CALLBACK pw__window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPA
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
-PixelWindow* pw_create_window(int width, int height, const char* title) {
+PixelWindow* pw_create_window(int width, int height, const char* title, bool resizable) {
     PixelWindow* win = (PixelWindow*)calloc(1, sizeof(PixelWindow));
     win->width = width;
     win->height = height;
     win->is_running = true;
     win->bgra_buffer = (uint8_t*)malloc(width * height * 4);
 
-    WNDCLASS wc = {0};
+    WNDCLASS wc = { 0 };
     wc.lpfnWndProc = pw__window_proc;
     wc.hInstance = GetModuleHandle(NULL);
     wc.lpszClassName = "PixelWindowClass";
     RegisterClass(&wc);
 
-    RECT rect = {0, 0, width, height};
-    AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
+    // Set up dynamic window styles based on the flag
+    DWORD window_style = WS_OVERLAPPEDWINDOW;
+    if (!resizable) {
+        window_style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
+    }
+
+    RECT rect = { 0, 0, width, height };
+    AdjustWindowRect(&rect, window_style, FALSE);
 
     win->hwnd = CreateWindowEx(0, "PixelWindowClass", title,
-                               WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-                               CW_USEDEFAULT, CW_USEDEFAULT,
-                               rect.right - rect.left, rect.bottom - rect.top,
-                               NULL, NULL, wc.hInstance, NULL);
+        window_style | WS_VISIBLE,
+        CW_USEDEFAULT, CW_USEDEFAULT,
+        rect.right - rect.left, rect.bottom - rect.top,
+        NULL, NULL, wc.hInstance, NULL);
 
     SetWindowLongPtr(win->hwnd, GWLP_USERDATA, (LONG_PTR)win);
 
@@ -94,6 +100,7 @@ PixelWindow* pw_create_window(int width, int height, const char* title) {
     win->bmi.bmiHeader.biPlanes = 1;
     win->bmi.bmiHeader.biBitCount = 32;
     win->bmi.bmiHeader.biCompression = BI_RGB;
+
     return win;
 }
 
@@ -150,7 +157,7 @@ struct PixelWindow {
     Atom wm_delete_window;
 };
 
-PixelWindow* pw_create_window(int width, int height, const char* title) {
+PixelWindow* pw_create_window(int width, int height, const char* title, bool resizable) {
     PixelWindow* win = (PixelWindow*)calloc(1, sizeof(PixelWindow));
     win->width = width;
     win->height = height;
@@ -159,26 +166,38 @@ PixelWindow* pw_create_window(int width, int height, const char* title) {
 
     win->display = XOpenDisplay(NULL);
     int screen = DefaultScreen(win->display);
-    
+
     win->window = XCreateSimpleWindow(win->display, RootWindow(win->display, screen),
-                                      0, 0, width, height, 0,
-                                      BlackPixel(win->display, screen),
-                                      BlackPixel(win->display, screen));
+        0, 0, width, height, 0,
+        BlackPixel(win->display, screen),
+        BlackPixel(win->display, screen));
 
     XStoreName(win->display, win->window, title);
-    
-    // Listen for window close event
+
+    // --- NEW X11 RESIZING LOGIC ---
+    if (!resizable) {
+        XSizeHints* hints = XAllocSizeHints();
+        if (hints) {
+            hints->flags = PMinSize | PMaxSize;
+            hints->min_width = hints->max_width = width;
+            hints->min_height = hints->max_height = height;
+            XSetWMNormalHints(win->display, win->window, hints);
+            XFree(hints);
+        }
+    }
+    // ------------------------------
+
     win->wm_delete_window = XInternAtom(win->display, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(win->display, win->window, &win->wm_delete_window, 1);
 
     XSelectInput(win->display, win->window, ExposureMask | KeyPressMask);
     XMapWindow(win->display, win->window);
-    
+
     win->gc = DefaultGC(win->display, screen);
-    
+
     win->ximage = XCreateImage(win->display, DefaultVisual(win->display, screen),
-                               24, ZPixmap, 0, (char*)win->bgra_buffer,
-                               width, height, 32, 0);
+        24, ZPixmap, 0, (char*)win->bgra_buffer,
+        width, height, 32, 0);
 
     return win;
 }
@@ -273,7 +292,7 @@ fragment float4 fs(VertexOut in [[stage_in]], texture2d<float> tex [[texture(0)]
 }
 @end
 
-PixelWindow* pw_create_window(int width, int height, const char* title) {
+PixelWindow* pw_create_window(int width, int height, const char* title, bool resizable) {
     [NSApplication sharedApplication];
     [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
     
@@ -282,6 +301,12 @@ PixelWindow* pw_create_window(int width, int height, const char* title) {
     win->height = height;
     win->is_running = true;
     win->rgba_buffer = (uint8_t*)malloc(width * height * 4);
+
+    // Set up dynamic window styles
+    NSWindowStyleMask style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable;
+    if (resizable) {
+        style |= NSWindowStyleMaskResizable;
+    }
 
     NSRect rect = NSMakeRect(0, 0, width, height);
     win->window = [[NSWindow alloc] initWithContentRect:rect
