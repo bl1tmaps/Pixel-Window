@@ -510,6 +510,10 @@ bool pw_process_events(PixelWindow* win) {
         else if (type == NSEventTypeRightMouseUp) { PW__UPDATE_MOUSE(win, 1, false); }
         else if (type == NSEventTypeKeyDown && ![event isARepeat]) {
             PW__UPDATE_KEY(win, pw__map_mac_key([event keyCode]), true);
+
+            if (!([event modifierFlags] & NSEventModifierFlagCommand)) {
+                continue; 
+            }
         }
         else if (type == NSEventTypeKeyUp) {
             PW__UPDATE_KEY(win, pw__map_mac_key([event keyCode]), false);
