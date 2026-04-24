@@ -89,12 +89,11 @@ PixelWindow* pw_create_window(int width, int height, const char* title) {
     SetWindowLongPtr(win->hwnd, GWLP_USERDATA, (LONG_PTR)win);
 
     win->bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    win->bmiHeader.biWidth = width;
-    win->bmiHeader.biHeight = -height; // Top-down
-    win->bmiHeader.biPlanes = 1;
-    win->bmiHeader.biBitCount = 32;
-    win->bmiHeader.biCompression = BI_RGB;
-
+    win->bmi.bmiHeader.biWidth = width;
+    win->bmi.bmiHeader.biHeight = -height; // Top-down
+    win->bmi.bmiHeader.biPlanes = 1;
+    win->bmi.bmiHeader.biBitCount = 32;
+    win->bmi.bmiHeader.biCompression = BI_RGB;
     return win;
 }
 
