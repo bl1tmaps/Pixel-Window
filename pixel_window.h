@@ -71,19 +71,28 @@ extern "C" {
 #include <string.h>
 
 // Helper Macros for updating input state
-#define PW__UPDATE_KEY(win, code, is_down) \
-    if ((code) > 0 && (code) < 512) { \
-        if (is_down && !(win)->input.keys_down[code]) (win)->input.keys_pressed[code] = true; \
-        if (!is_down && (win)->input.keys_down[code]) (win)->input.keys_released[code] = true; \
-        (win)->input.keys_down[code] = is_down; \
-    }
+// Helper Macros for updating input state safely
+#define PW__UPDATE_KEY(win, code, is_down_val) \
+    do { \
+        int _c = (code); \
+        bool _d = (is_down_val); \
+        if (_c > 0 && _c < 512) { \
+            if (_d && !(win)->input.keys_down[_c]) (win)->input.keys_pressed[_c] = true; \
+            if (!_d && (win)->input.keys_down[_c]) (win)->input.keys_released[_c] = true; \
+            (win)->input.keys_down[_c] = _d; \
+        } \
+    } while(0)
 
-#define PW__UPDATE_MOUSE(win, btn, is_down) \
-    if ((btn) >= 0 && (btn) < 3) { \
-        if (is_down && !(win)->input.mouse_down[btn]) (win)->input.mouse_pressed[btn] = true; \
-        if (!is_down && (win)->input.mouse_down[btn]) (win)->input.mouse_released[btn] = true; \
-        (win)->input.mouse_down[btn] = is_down; \
-    }
+#define PW__UPDATE_MOUSE(win, btn, is_down_val) \
+    do { \
+        int _b = (btn); \
+        bool _d = (is_down_val); \
+        if (_b >= 0 && _b < 3) { \
+            if (_d && !(win)->input.mouse_down[_b]) (win)->input.mouse_pressed[_b] = true; \
+            if (!_d && (win)->input.mouse_down[_b]) (win)->input.mouse_released[_b] = true; \
+            (win)->input.mouse_down[_b] = _d; \
+        } \
+    } while(0)
 
 // ----------------------------------------------------------------------------
 // WINDOWS (Win32)
