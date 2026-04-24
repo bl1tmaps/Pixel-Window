@@ -14,7 +14,7 @@ void generate_pattern(uint8_t* buffer, int width, int height, int offset) {
 }
 
 int main() {
-    int width = 800, height = 600;
+    int width = 1920, height = 1080;
     uint8_t* rgb_buffer = (uint8_t*)malloc(width * height * 3);
     
     PixelWindow* win = pw_create_window(width, height, "Cross-Platform Pixel Buffer", false);
