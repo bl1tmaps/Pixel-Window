@@ -1,6 +1,8 @@
 #define PIXEL_WINDOW_IMPLEMENTATION
 #include "pixel_window.h"
+#include "tiny_glyph.h"
 #include <stdio.h> // Needed for printf
+
 
 // Generate a simple RGB test pattern (our background)
 void generate_pattern(uint8_t* buffer, int width, int height, int offset) {
@@ -71,7 +73,8 @@ int main() {
 
         // 6. Draw a 20x20 rectangle at the mouse cursor
         draw_rectangle(rgb_buffer, width, height, mouse_px, mouse_py, 20, r, g, b);
-
+        
+        draw_string_rgb(rgb_buffer, width, height, "Hello, World!", 50, 100, 16, 255, 0, 0);
         // 7. Push the buffer to the screen
         pw_update_window(win, rgb_buffer);
     }
