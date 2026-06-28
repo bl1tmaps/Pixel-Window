@@ -21,7 +21,10 @@ The core premise:
 ```
 see main.cpp for an example.
 
+### Mac OS on ARM
 ![MacOS](assets/Macos.png)
+
+### Windows XP on i386
 ![Windows](assets/winxp.png)
 
 ## Building Example Program
