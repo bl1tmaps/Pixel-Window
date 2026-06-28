@@ -1,6 +1,6 @@
 # Pixel Window
 
-A minimal, header only, cross platform window-spawning library. 
+A minimal, header only C, cross platform window-spawning library. 
 Provides a buffer of RGB pixels, mouse, and realtime keyboard, and Sprite Text on Mac OS, 
 Linux X11/Wayland, and Windows (Win32). All CPU rendered.
 
