@@ -20,4 +20,5 @@ The core premise:
 ```
 see main.cpp for an example.
 
-[MacOS](assets/Macos.png)
+![MacOS](assets/Macos.png)
+![Windows](assets/winxp.png)
