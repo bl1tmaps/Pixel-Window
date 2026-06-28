@@ -2,7 +2,7 @@
 
 A minimal, header only C, cross platform window-spawning library. 
 Provides a buffer of RGB pixels, mouse, and realtime keyboard, and Sprite Text on Mac OS, 
-Linux X11/Wayland, and Windows (Win32). All CPU rendered.
+Linux X11/Wayland, and Windows (Win32). All CPU rendered, and cross-architecture.
 
 ## Examples
 You include `pixel_window.h` and you are good to go! See CMakeLists.txt for any linking considerations
@@ -21,10 +21,10 @@ The core premise:
 ```
 see main.cpp for an example.
 
-### Mac OS on ARM
+### Mac OS on ARM + Metal
 ![MacOS](assets/Macos.png)
 
-### Windows XP on i386
+### Windows XP on i386 + VESA
 ![Windows](assets/winxp.png)
 
 ## Building Example Program
