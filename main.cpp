@@ -22,7 +22,6 @@ void draw_rectangle(uint8_t* buffer, int win_width, int win_height, int cx, int 
 
     for (int y = cy - half_size; y <= cy + half_size; ++y) {
         for (int x = cx - half_size; x <= cx + half_size; ++x) {
-            // BOUNDS CHECK: Extremely important so we don't crash when the mouse hits the edge
             if (x >= 0 && x < win_width && y >= 0 && y < win_height) {
                 int i = (y * win_width + x) * 3;
                 buffer[i + 0] = r;
@@ -36,9 +35,9 @@ void draw_rectangle(uint8_t* buffer, int win_width, int win_height, int cx, int 
 int main() {
     int width = 800, height = 600;
     uint8_t* rgb_buffer = (uint8_t*)malloc(width * height * 3);
-
-    // Remember to pass 'false' for the resizable flag we added earlier
-    PixelWindow* win = pw_create_window(width, height, "Interactive Pixel Window", false);
+    
+    bool resizeable = false;
+    PixelWindow* win = pw_create_window(width, height, "Interactive Pixel Window", resizeable);
 
     int offset = 0;
     while (pw_process_events(win)) {
@@ -74,11 +73,13 @@ int main() {
         // 6. Draw a 20x20 rectangle at the mouse cursor
         draw_rectangle(rgb_buffer, width, height, mouse_px, mouse_py, 20, r, g, b);
         
+        // 6.5 Draw some text.
         draw_string_rgb(rgb_buffer, width, height, "Hello, World!", 50, 100, 16, 255, 0, 0);
         // 7. Push the buffer to the screen
         pw_update_window(win, rgb_buffer);
     }
-
+    
+    // Clean-up
     pw_destroy_window(win);
     free(rgb_buffer);
     return 0;
