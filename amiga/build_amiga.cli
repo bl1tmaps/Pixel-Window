@@ -1,0 +1,11 @@
+; AmigaDOS Native Build Script
+Echo "Compiling PixelWindowApp natively on PiStorm..."
+
+; Use g++ since main is a .cpp file
+g++ -O3 -m68040 -fomit-frame-pointer -mcrt=clib2 main.cpp -o PixelWindowApp
+
+If WARN
+    Echo "Build Failed!"
+Else
+    Echo "Build Successful! Run with: PixelWindowApp"
+EndIf

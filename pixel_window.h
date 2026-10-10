@@ -2,8 +2,9 @@
 #define PIXEL_WINDOW_H
 
 #include <stdint.h>
+#ifndef __cplusplus
 #include <stdbool.h>
-
+#endif
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -563,7 +564,173 @@ void pw_destroy_window(PixelWindow* win) {
 }
 
 #endif // __OBJC__
-#endif // __APPLE__
+
+// ----------------------------------------------------------------------------
+// AmigaOS Classic (CyberGraphics RTG)
+// ----------------------------------------------------------------------------
+#elif defined(__amigaos__)
+
+#include <proto/exec.h>
+#include <proto/intuition.h>
+#include <cybergraphx/cybergraphics.h>
+#include <proto/cybergraphics.h>
+
+struct IntuitionBase *IntuitionBase = NULL;
+struct Library *CyberGfxBase = NULL;
+
+struct PixelWindow {
+    int width;
+    int height;
+    bool is_running;
+    PwInputState input;
+    struct Window* amg_win;
+    uint32_t* rtg_buffer; 
+};
+
+// Map Amiga hardware rawkeys to standard uppercase ASCII and PW_KEYs
+static int pw__map_amiga_key(uint16_t code) {
+    uint16_t base_code = code & 0x7F; // Strip the KeyUp bit (0x80)
+
+    // Lookup table for Amiga Rawkeys 0x00 to 0x39 (Standard US Layout)
+    static const int amiga_key_map[0x40] = {
+        '`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\\', 0, 0, 
+        'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '[', ']', 0, 0, 0, 0, 
+        'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', '\'', 0, 0, 0, 0, 0, 
+        'Z', 'X', 'C', 'V', 'B', 'N', 'M', ',', '.', '/', 0, 0, 0, 0, 0, 0
+    };
+
+    if (base_code < 0x40) return amiga_key_map[base_code];
+
+    switch (base_code) {
+        case 0x40: return PW_KEY_SPACE;
+        case 0x41: return PW_KEY_BACKSPACE;
+        case 0x42: return PW_KEY_TAB;
+        case 0x44: return PW_KEY_ENTER;
+        case 0x45: return PW_KEY_ESCAPE;
+        case 0x4C: return PW_KEY_UP;
+        case 0x4D: return PW_KEY_DOWN;
+        case 0x4E: return PW_KEY_RIGHT;
+        case 0x4F: return PW_KEY_LEFT;
+    }
+    return 0; 
+}
+
+PixelWindow* pw_create_window(int width, int height, const char* title, bool resizable) {
+    if (!IntuitionBase) IntuitionBase = (struct IntuitionBase *)OpenLibrary("intuition.library", 39);
+    if (!CyberGfxBase) CyberGfxBase = OpenLibrary("cybergraphics.library", 0);
+    if (!IntuitionBase || !CyberGfxBase) return NULL;
+
+    PixelWindow* win = (PixelWindow*)calloc(1, sizeof(PixelWindow));
+    win->width = width;
+    win->height = height;
+    win->is_running = true;
+    win->rtg_buffer = (uint32_t*)malloc(width * height * sizeof(uint32_t));
+
+    // Construct a safe, native Amiga TagList
+    struct TagItem tags[] = {
+        { WA_Left, 0 },
+        { WA_Top, 0 },
+        { WA_InnerWidth, width },
+        { WA_InnerHeight, height },
+        { WA_Title, (ULONG)title },
+        { WA_CloseGadget, TRUE },
+        { WA_DepthGadget, TRUE },
+        { WA_DragBar, TRUE },
+        { WA_Activate, TRUE },
+        { WA_AutoAdjust, TRUE },
+        { WA_ReportMouse, TRUE },
+        { WA_IDCMP, IDCMP_CLOSEWINDOW | IDCMP_MOUSEMOVE | IDCMP_MOUSEBUTTONS | IDCMP_RAWKEY },
+        { resizable ? WA_SizeGadget : TAG_IGNORE, TRUE }, // Ignore size gadget if not resizable
+        { TAG_DONE, 0 }
+    };
+
+    // Open the window using the TagList pointer
+    win->amg_win = OpenWindowTagList(NULL, tags);
+
+    if (!win->amg_win) {
+        free(win->rtg_buffer);
+        free(win);
+        return NULL; 
+    }
+    return win;
+}
+
+bool pw_process_events(PixelWindow* win) {
+    if (!win) return false; // Prevent zero-page crash if creation failed
+
+    pw__clear_single_frame_input(win);
+    struct IntuiMessage *msg;
+    
+    while ((msg = (struct IntuiMessage *)GetMsg(win->amg_win->UserPort))) {
+        ULONG msgClass = msg->Class;
+        UWORD msgCode = msg->Code;
+        int16_t mx = msg->MouseX;
+        int16_t my = msg->MouseY;
+        
+        ReplyMsg((struct Message *)msg);
+
+        if (msgClass == IDCMP_CLOSEWINDOW) {
+            win->is_running = false;
+        } 
+        else if (msgClass == IDCMP_MOUSEMOVE) {
+            // Strip the Amiga window borders to calculate inner client coordinates
+            float nx = (float)(mx - win->amg_win->BorderLeft) / win->width;
+            float ny = (float)(my - win->amg_win->BorderTop)  / win->height;
+            
+            // Clamp to 0.0 - 1.0 to ensure main.cpp drawing logic stays in bounds
+            if (nx < 0.0f) nx = 0.0f; if (nx > 1.0f) nx = 1.0f;
+            if (ny < 0.0f) ny = 0.0f; if (ny > 1.0f) ny = 1.0f;
+            
+            win->input.mouse_x = nx;
+            win->input.mouse_y = ny;
+        } 
+        else if (msgClass == IDCMP_MOUSEBUTTONS) {
+            if (msgCode == SELECTDOWN) PW__UPDATE_MOUSE(win, 0, true);
+            else if (msgCode == SELECTUP) PW__UPDATE_MOUSE(win, 0, false);
+            else if (msgCode == MENUDOWN) PW__UPDATE_MOUSE(win, 1, true);
+            else if (msgCode == MENUUP) PW__UPDATE_MOUSE(win, 1, false);
+            else if (msgCode == MIDDLEDOWN) PW__UPDATE_MOUSE(win, 2, true);
+            else if (msgCode == MIDDLEUP) PW__UPDATE_MOUSE(win, 2, false);
+        }
+        else if (msgClass == IDCMP_RAWKEY) {
+            bool is_down = !(msgCode & 0x80); 
+            PW__UPDATE_KEY(win, pw__map_amiga_key(msgCode), is_down);
+        }
+    }
+    return win->is_running;
+}
+
+void pw_update_window(PixelWindow* win, const uint8_t* rgb_buffer) {
+    if (!win || !win->rtg_buffer) return; 
+
+    uint32_t* dst = win->rtg_buffer;
+    int pixels = win->width * win->height;
+    
+    for (int i = 0; i < pixels; ++i) {
+        // Cast to 32-bit before shifting to prevent C-compiler undefined behavior
+        *dst++ = ((uint32_t)rgb_buffer[i * 3] << 24) |      
+                 ((uint32_t)rgb_buffer[i * 3 + 1] << 16) |  
+                 ((uint32_t)rgb_buffer[i * 3 + 2] << 8) |   
+                 0xFF;                            
+    }
+
+    WritePixelArray(win->rtg_buffer, 0, 0, win->width * 4,
+                    win->amg_win->RPort, 
+                    win->amg_win->BorderLeft, 
+                    win->amg_win->BorderTop, 
+                    win->width, win->height, RECTFMT_RGBA);
+}
+
+void pw_destroy_window(PixelWindow* win) {
+    if (!win) return;
+    if (win->amg_win) CloseWindow(win->amg_win);
+    if (win->rtg_buffer) free(win->rtg_buffer);
+    free(win);
+    
+    if (CyberGfxBase) CloseLibrary(CyberGfxBase);
+    if (IntuitionBase) CloseLibrary((struct Library *)IntuitionBase);
+}
+#endif // __AMIGA__
 
 static void pw__clear_single_frame_input(PixelWindow* win) {
     memset(win->input.mouse_pressed, 0, sizeof(win->input.mouse_pressed));
