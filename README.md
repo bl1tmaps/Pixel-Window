@@ -27,6 +27,9 @@ see main.cpp for an example.
 ### Windows XP on i386 + VESA
 ![Windows](assets/winxp.png)
 
+### Amiga OS 3.x on M68K + RTG
+![Windows](assets/amiga.png)
+
 ## Building Example Program
 ```
 cmake -B build .
