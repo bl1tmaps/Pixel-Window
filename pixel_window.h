@@ -566,7 +566,7 @@ void pw_destroy_window(PixelWindow* win) {
 #endif // __OBJC__
 
 // ----------------------------------------------------------------------------
-// AmigaOS Classic (CyberGraphics RTG)
+// AmigaOS Classic (CyberGraphics / P96 RTG)
 // ----------------------------------------------------------------------------
 #elif defined(__amigaos__)
 
@@ -574,6 +574,10 @@ void pw_destroy_window(PixelWindow* win) {
 #include <proto/intuition.h>
 #include <cybergraphx/cybergraphics.h>
 #include <proto/cybergraphics.h>
+#include <stdio.h>
+
+// Automatically allocate 128 KB of stack space when launched on AmigaOS
+static const char __attribute__((used)) min_stack[] = "$STACK:131072";
 
 struct IntuitionBase *IntuitionBase = NULL;
 struct Library *CyberGfxBase = NULL;
@@ -591,7 +595,6 @@ struct PixelWindow {
 static int pw__map_amiga_key(uint16_t code) {
     uint16_t base_code = code & 0x7F; // Strip the KeyUp bit (0x80)
 
-    // Lookup table for Amiga Rawkeys 0x00 to 0x39 (Standard US Layout)
     static const int amiga_key_map[0x40] = {
         '`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\\', 0, 0, 
         'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '[', ']', 0, 0, 0, 0, 
@@ -618,15 +621,30 @@ static int pw__map_amiga_key(uint16_t code) {
 PixelWindow* pw_create_window(int width, int height, const char* title, bool resizable) {
     if (!IntuitionBase) IntuitionBase = (struct IntuitionBase *)OpenLibrary("intuition.library", 39);
     if (!CyberGfxBase) CyberGfxBase = OpenLibrary("cybergraphics.library", 0);
-    if (!IntuitionBase || !CyberGfxBase) return NULL;
+    if (!CyberGfxBase) CyberGfxBase = OpenLibrary("p96.library", 0); // Modern P96 fallback
+
+    if (!IntuitionBase) {
+        printf("[ERROR] Failed to open intuition.library v39+\n");
+        return NULL;
+    }
+    if (!CyberGfxBase) {
+        printf("[ERROR] Failed to open cybergraphics.library or p96.library\n");
+        return NULL;
+    }
 
     PixelWindow* win = (PixelWindow*)calloc(1, sizeof(PixelWindow));
+    if (!win) return NULL;
+
     win->width = width;
     win->height = height;
     win->is_running = true;
     win->rtg_buffer = (uint32_t*)malloc(width * height * sizeof(uint32_t));
+    
+    if (!win->rtg_buffer) {
+        free(win);
+        return NULL;
+    }
 
-    // Construct a safe, native Amiga TagList
     struct TagItem tags[] = {
         { WA_Left, 0 },
         { WA_Top, 0 },
@@ -640,14 +658,14 @@ PixelWindow* pw_create_window(int width, int height, const char* title, bool res
         { WA_AutoAdjust, TRUE },
         { WA_ReportMouse, TRUE },
         { WA_IDCMP, IDCMP_CLOSEWINDOW | IDCMP_MOUSEMOVE | IDCMP_MOUSEBUTTONS | IDCMP_RAWKEY },
-        { resizable ? WA_SizeGadget : TAG_IGNORE, TRUE }, // Ignore size gadget if not resizable
+        { resizable ? WA_SizeGadget : TAG_IGNORE, TRUE },
         { TAG_DONE, 0 }
     };
 
-    // Open the window using the TagList pointer
     win->amg_win = OpenWindowTagList(NULL, tags);
 
     if (!win->amg_win) {
+        printf("[ERROR] OpenWindowTagList failed! Check requested resolution or screen mode.\n");
         free(win->rtg_buffer);
         free(win);
         return NULL; 
@@ -656,7 +674,7 @@ PixelWindow* pw_create_window(int width, int height, const char* title, bool res
 }
 
 bool pw_process_events(PixelWindow* win) {
-    if (!win) return false; // Prevent zero-page crash if creation failed
+    if (!win || !win->amg_win) return false; // Null safety guard
 
     pw__clear_single_frame_input(win);
     struct IntuiMessage *msg;
@@ -673,11 +691,9 @@ bool pw_process_events(PixelWindow* win) {
             win->is_running = false;
         } 
         else if (msgClass == IDCMP_MOUSEMOVE) {
-            // Strip the Amiga window borders to calculate inner client coordinates
             float nx = (float)(mx - win->amg_win->BorderLeft) / win->width;
             float ny = (float)(my - win->amg_win->BorderTop)  / win->height;
             
-            // Clamp to 0.0 - 1.0 to ensure main.cpp drawing logic stays in bounds
             if (nx < 0.0f) nx = 0.0f; if (nx > 1.0f) nx = 1.0f;
             if (ny < 0.0f) ny = 0.0f; if (ny > 1.0f) ny = 1.0f;
             
@@ -701,13 +717,12 @@ bool pw_process_events(PixelWindow* win) {
 }
 
 void pw_update_window(PixelWindow* win, const uint8_t* rgb_buffer) {
-    if (!win || !win->rtg_buffer) return; 
+    if (!win || !win->rtg_buffer || !win->amg_win) return; // Null safety guard
 
     uint32_t* dst = win->rtg_buffer;
     int pixels = win->width * win->height;
     
     for (int i = 0; i < pixels; ++i) {
-        // Cast to 32-bit before shifting to prevent C-compiler undefined behavior
         *dst++ = ((uint32_t)rgb_buffer[i * 3] << 24) |      
                  ((uint32_t)rgb_buffer[i * 3 + 1] << 16) |  
                  ((uint32_t)rgb_buffer[i * 3 + 2] << 8) |   
@@ -730,7 +745,7 @@ void pw_destroy_window(PixelWindow* win) {
     if (CyberGfxBase) CloseLibrary(CyberGfxBase);
     if (IntuitionBase) CloseLibrary((struct Library *)IntuitionBase);
 }
-#endif // __AMIGA__
+#endif // __amigaos__
 
 static void pw__clear_single_frame_input(PixelWindow* win) {
     memset(win->input.mouse_pressed, 0, sizeof(win->input.mouse_pressed));
