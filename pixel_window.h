@@ -19,6 +19,7 @@ extern "C" {
         PW_KEY_ESCAPE = 27, PW_KEY_SPACE = 32,
         PW_KEY_LEFT = 256, PW_KEY_RIGHT = 257,
         PW_KEY_UP = 258, PW_KEY_DOWN = 259,
+        PW_KEY_LSHIFT = 260, PW_KEY_RSHIFT = 261,
         // Letters A-Z and Numbers 0-9 map directly to their uppercase ASCII values
     } PwKey;
 
@@ -406,6 +407,7 @@ static int pw__map_mac_key(unsigned short k) {
         case 49: return PW_KEY_SPACE; case 53: return PW_KEY_ESCAPE;
         case 36: return PW_KEY_ENTER; case 51: return PW_KEY_BACKSPACE;
         case 48: return PW_KEY_TAB;
+        case 56: return PW_KEY_LSHIFT; case 60: return PW_KEY_RSHIFT;
     }
     return 0;
 }
@@ -627,6 +629,8 @@ static int pw__map_amiga_key(uint16_t code) {
         case 0x4D: return PW_KEY_DOWN;
         case 0x4E: return PW_KEY_RIGHT;
         case 0x4F: return PW_KEY_LEFT;
+        case 0x60: return PW_KEY_LSHIFT;
+        case 0x61: return PW_KEY_RSHIFT;
     }
     return 0; 
 }
