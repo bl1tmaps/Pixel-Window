@@ -374,6 +374,7 @@ struct PixelWindow {
     uint8_t* rgba_buffer;
 
     NSWindow* window;
+    id delegate;
     CAMetalLayer* metal_layer;
     id<MTLDevice> device;
     id<MTLCommandQueue> command_queue;
@@ -450,6 +451,7 @@ PixelWindow* pw_create_window(int width, int height, const char* title, bool res
 
     PWWindowDelegate* delegate = [[PWWindowDelegate alloc]init];
     delegate.is_running_ptr = &win->is_running;
+    win->delegate = delegate; // <-- Keep alive under ARC
     [win->window setDelegate : delegate] ;
 
     win->device = MTLCreateSystemDefaultDevice();
@@ -488,6 +490,7 @@ PixelWindow* pw_create_window(int width, int height, const char* title, bool res
 }
 
 bool pw_process_events(PixelWindow* win) {
+    @autoreleasepool {
     pw__clear_single_frame_input(win);
     NSEvent* event;
     while ((event = [NSApp nextEventMatchingMask : NSEventMaskAny
@@ -523,9 +526,11 @@ bool pw_process_events(PixelWindow* win) {
         [NSApp sendEvent : event];
     }
     return win->is_running;
+    }
 }
 
 void pw_update_window(PixelWindow* win, const uint8_t* rgb_buffer) {
+    @autoreleasepool {
     int pixels = win->width * win->height;
     for (int i = 0; i < pixels; ++i) {
         win->rgba_buffer[i * 4 + 0] = rgb_buffer[i * 3 + 0]; // R
@@ -554,6 +559,7 @@ void pw_update_window(PixelWindow* win, const uint8_t* rgb_buffer) {
 
         [commandBuffer presentDrawable : drawable] ;
         [commandBuffer commit] ;
+    }
     }
 }
 
