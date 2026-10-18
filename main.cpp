@@ -1,6 +1,8 @@
 #define PIXEL_WINDOW_IMPLEMENTATION
 #include "pixel_window.h"
 #include "tiny_glyph.h"
+#define TINY_DRAW_IMPLEMENTATION
+#include "tiny_draw.h"
 #include <stdio.h> // Needed for printf
 
 
@@ -16,22 +18,6 @@ void generate_pattern(uint8_t* buffer, int width, int height, int offset) {
     }
 }
 
-// Draw a solid rectangle into the pixel buffer
-void draw_rectangle(uint8_t* buffer, int win_width, int win_height, int cx, int cy, int size, uint8_t r, uint8_t g, uint8_t b) {
-    int half_size = size / 2;
-
-    for (int y = cy - half_size; y <= cy + half_size; ++y) {
-        for (int x = cx - half_size; x <= cx + half_size; ++x) {
-            if (x >= 0 && x < win_width && y >= 0 && y < win_height) {
-                int i = (y * win_width + x) * 3;
-                buffer[i + 0] = r;
-                buffer[i + 1] = g;
-                buffer[i + 2] = b;
-            }
-        }
-    }
-}
-
 int main() {
     int width = 800, height = 600;
     uint8_t* rgb_buffer = (uint8_t*)malloc(width * height * 3);
@@ -40,6 +26,7 @@ int main() {
     PixelWindow* win = pw_create_window(width, height, "Interactive Pixel Window", resizeable);
 
     int offset = 0;
+
     while (pw_process_events(win)) {
         // 1. Draw the animated background pattern
         generate_pattern(rgb_buffer, width, height, offset++);
@@ -71,10 +58,19 @@ int main() {
         uint8_t b = 0;
 
         // 6. Draw a 20x20 rectangle at the mouse cursor
-        draw_rectangle(rgb_buffer, width, height, mouse_px, mouse_py, 20, r, g, b);
-        
+        //draw_rectangle(rgb_buffer, width, height, mouse_px, mouse_py, 20, r, g, b);
+        // Shapes
+        td_draw_line(rgb_buffer, width, height, 30, 30, width-30, height-30, 5, 0, 0, 0);
+        td_draw_circle(rgb_buffer, width, height, 200, 200, 50, 2, true, 200, 255, 100);
+        td_draw_triangle(rgb_buffer, width, height, 250, 150, 300, 250, 350, 150, 2, true, 0, 0, 255);
+
+        int rect_size = 20;
+        int thickness = 2; // For un-filled example
+        // Mouse
+        td_draw_rect(rgb_buffer, width, height, mouse_px - (rect_size/2), mouse_py - (rect_size/2), rect_size, rect_size, thickness, true, r, g, b);
+
         // 6.5 Draw some text.
-        draw_string_rgb(rgb_buffer, width, height, "Hello, World!", 50, 100, 16, 255, 0, 0);
+        draw_string_rgb(rgb_buffer, width, height, "Hello, World!", 50, 100, 16, 255, 255, 255);
         // 7. Push the buffer to the screen
         pw_update_window(win, rgb_buffer);
     }
