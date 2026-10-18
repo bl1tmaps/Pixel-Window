@@ -150,9 +150,22 @@ unsigned char font8x8_basic[128][8] = {
     { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},    // U+007F
 };
 
+// Pointer to the currently active font, defaulting to the basic Latin font
+static unsigned char (*current_font)[8] = font8x8_basic;
+
+/**
+ * Sets the active 8x8 bitmap font used for drawing text.
+ * @param new_font Pointer to a 128x8 byte array containing the new glyphs.
+ */
+void set_pixel_font(unsigned char new_font[128][8]) {
+    if (new_font) {
+        current_font = new_font;
+    }
+}
+
 /**
  * Draws a string onto an RGB pixel buffer using an 8x8 bitmap font.
- * * @param rgb_buffer Pointer to the pre-allocated (width * height * 3) RGB buffer.
+ * @param rgb_buffer Pointer to the pre-allocated (width * height * 3) RGB buffer.
  * @param buf_width  The width of the overall image buffer in pixels.
  * @param buf_height The height of the overall image buffer in pixels.
  * @param str        The null-terminated C-string to draw.
@@ -161,15 +174,15 @@ unsigned char font8x8_basic[128][8] = {
  * @param size       The target size of the font (8 = 1x scale, 16 = 2x scale, etc.).
  * @param r, g, b    The color to draw the text in.
  */
-void draw_string_rgb(uint8_t* rgb_buffer, int buf_width, int buf_height, 
-                     const char* str, int x, int y, int size, 
-                     uint8_t r, uint8_t g, uint8_t b) 
+void draw_string_rgb(uint8_t* rgb_buffer, int buf_width, int buf_height,
+                     const char* str, int x, int y, int size,
+                     uint8_t r, uint8_t g, uint8_t b)
 {
     if (!rgb_buffer || !str) return;
 
     // Calculate integer scaling factor based on the baseline size of 8
     int scale = size / 8;
-    if (scale < 1) scale = 1; 
+    if (scale < 1) scale = 1;
 
     int current_x = x;
 
@@ -186,14 +199,15 @@ void draw_string_rgb(uint8_t* rgb_buffer, int buf_width, int buf_height,
 
         // Iterate over the 8 rows of the glyph
         for (int row = 0; row < 8; row++) {
-            unsigned char row_data = font8x8_basic[char_idx][row];
+            // Read from the dynamically set current_font pointer
+            unsigned char row_data = current_font[char_idx][row];
 
             // Iterate over the 8 columns (pixels) in the row
             for (int col = 0; col < 8; col++) {
-                
+
                 // In font8x8, the least significant bit (LSB) is the leftmost pixel
                 if (row_data & (1 << col)) {
-                    
+
                     // Draw a scale x scale block for this active pixel
                     for (int dy = 0; dy < scale; dy++) {
                         for (int dx = 0; dx < scale; dx++) {
@@ -201,12 +215,12 @@ void draw_string_rgb(uint8_t* rgb_buffer, int buf_width, int buf_height,
                             int draw_y = y + (row * scale) + dy;
 
                             // Protect against writing out of the buffer bounds
-                            if (draw_x >= 0 && draw_x < buf_width && 
-                                draw_y >= 0 && draw_y < buf_height) 
+                            if (draw_x >= 0 && draw_x < buf_width &&
+                                draw_y >= 0 && draw_y < buf_height)
                             {
                                 // Calculate 1D index for the 3-byte RGB structure
                                 int pixel_index = (draw_y * buf_width + draw_x) * 3;
-                                
+
                                 rgb_buffer[pixel_index]     = r;
                                 rgb_buffer[pixel_index + 1] = g;
                                 rgb_buffer[pixel_index + 2] = b;
@@ -216,7 +230,7 @@ void draw_string_rgb(uint8_t* rgb_buffer, int buf_width, int buf_height,
                 }
             }
         }
-        
+
         // Advance the cursor for the next character (8 base pixels * scale)
         current_x += 8 * scale;
     }
