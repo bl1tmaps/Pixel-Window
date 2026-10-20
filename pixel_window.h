@@ -531,6 +531,23 @@ bool pw_process_events(PixelWindow* win) {
         else if (type == NSEventTypeKeyUp) {
             PW__UPDATE_KEY(win, pw__map_mac_key([event keyCode]), false);
         }
+        else if (type == NSEventTypeFlagsChanged) {
+            unsigned short raw_key = [event keyCode];
+            int mapped_key = pw__map_mac_key(raw_key);
+
+            if (mapped_key > 0 && mapped_key < 512) {
+                // flagsChanged fires on both press and release, so we check the modifier flags
+                // to determine the actual state of the Shift key
+                bool is_down = ([event modifierFlags] & NSEventModifierFlagShift) != 0;
+
+                // NOTE: Adjust 'win->input' below to match whatever
+                // pointer name your header uses for the window/input state!
+                win->input.keys_down[mapped_key] = is_down;
+                if (is_down) {
+                    win->input.keys_pressed[mapped_key] = true;
+                }
+            }
+        }
 
         [NSApp sendEvent : event];
     }
