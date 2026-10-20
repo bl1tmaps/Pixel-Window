@@ -14,14 +14,81 @@ extern "C" {
     // ----------------------------------------------------------------------------
 
     // Unified Keycodes
-    typedef enum {
-        PW_KEY_BACKSPACE = 8, PW_KEY_TAB = 9, PW_KEY_ENTER = 10,
-        PW_KEY_ESCAPE = 27, PW_KEY_SPACE = 32,
-        PW_KEY_LEFT = 256, PW_KEY_RIGHT = 257,
-        PW_KEY_UP = 258, PW_KEY_DOWN = 259,
-        PW_KEY_LSHIFT = 260, PW_KEY_RSHIFT = 261,
-        PW_KEY_LCTRL = 262, PW_KEY_RCTRL = 263,
-        // Letters A-Z and Numbers 0-9 map directly to their uppercase ASCII values
+typedef enum {
+    // Standard ASCII Control Characters
+    PW_KEY_BACKSPACE = 8,
+    PW_KEY_TAB       = 9,
+    PW_KEY_ENTER     = 10,
+    PW_KEY_ESCAPE    = 27,
+    PW_KEY_SPACE     = 32,
+
+    // Letters A-Z (65-90), Numbers 0-9 (48-57), and punctuation map
+    // directly to their standard uppercase ASCII values (0-127).
+
+    // Extended Navigation Keys
+    PW_KEY_LEFT      = 256,
+    PW_KEY_RIGHT     = 257,
+    PW_KEY_UP        = 258,
+    PW_KEY_DOWN      = 259,
+
+    // Modifier Keys
+    PW_KEY_LSHIFT    = 260,
+    PW_KEY_RSHIFT    = 261,
+    PW_KEY_LCTRL     = 262,
+    PW_KEY_RCTRL     = 263,
+    PW_KEY_LALT      = 264,
+    PW_KEY_RALT      = 265,
+    PW_KEY_LGUI      = 266, // Mac Command / Windows Key (Left)
+    PW_KEY_RGUI      = 267, // Mac Command / Windows Key (Right)
+
+    // Editing & Pagination
+    PW_KEY_INSERT    = 268,
+    PW_KEY_DELETE    = 269,
+    PW_KEY_HOME      = 270,
+    PW_KEY_END       = 271,
+    PW_KEY_PAGEUP    = 272,
+    PW_KEY_PAGEDOWN  = 273,
+
+    // Function Keys
+    PW_KEY_F1        = 274,
+    PW_KEY_F2        = 275,
+    PW_KEY_F3        = 276,
+    PW_KEY_F4        = 277,
+    PW_KEY_F5        = 278,
+    PW_KEY_F6        = 279,
+    PW_KEY_F7        = 280,
+    PW_KEY_F8        = 281,
+    PW_KEY_F9        = 282,
+    PW_KEY_F10       = 283,
+    PW_KEY_F11       = 284,
+    PW_KEY_F12       = 285,
+
+    // System & Locks
+    PW_KEY_CAPSLOCK    = 286,
+    PW_KEY_SCROLLLOCK  = 287,
+    PW_KEY_NUMLOCK     = 288,
+    PW_KEY_PRINTSCREEN = 289,
+    PW_KEY_PAUSE       = 290,
+
+    // Numpad
+    PW_KEY_KP_0        = 291,
+    PW_KEY_KP_1        = 292,
+    PW_KEY_KP_2        = 293,
+    PW_KEY_KP_3        = 294,
+    PW_KEY_KP_4        = 295,
+    PW_KEY_KP_5        = 296,
+    PW_KEY_KP_6        = 297,
+    PW_KEY_KP_7        = 298,
+    PW_KEY_KP_8        = 299,
+    PW_KEY_KP_9        = 300,
+    PW_KEY_KP_DECIMAL  = 301,
+    PW_KEY_KP_DIVIDE   = 302,
+    PW_KEY_KP_MULTIPLY = 303,
+    PW_KEY_KP_SUBTRACT = 304,
+    PW_KEY_KP_ADD      = 305,
+    PW_KEY_KP_ENTER    = 306,
+
+    PW_KEY_MAX         = 512
     } PwKey;
 
     // Input State Representation
@@ -409,9 +476,6 @@ static int pw__map_mac_key(unsigned short k) {
         case 36: return PW_KEY_ENTER; case 51: return PW_KEY_BACKSPACE;
         case 48: return PW_KEY_TAB;
         case 56: return PW_KEY_LSHIFT; case 60: return PW_KEY_RSHIFT;
-        case 55: return PW_KEY_LCTRL; // Mac Command Left
-        case 54: return PW_KEY_RCTRL; // Mac Command Right
-        case 59: return PW_KEY_LCTRL; // Mac Control
     }
     return 0;
 }
@@ -504,61 +568,65 @@ PixelWindow* pw_create_window(int width, int height, const char* title, bool res
 
 bool pw_process_events(PixelWindow* win) {
     @autoreleasepool {
-    pw__clear_single_frame_input(win);
-    NSEvent* event;
-    while ((event = [NSApp nextEventMatchingMask : NSEventMaskAny
-        untilDate : nil
-        inMode : NSDefaultRunLoopMode
-        dequeue : YES])) {
-        NSEventType type = [event type];
+        pw__clear_single_frame_input(win);
+        NSEvent* event;
+        while ((event = [NSApp nextEventMatchingMask: NSEventMaskAny
+                                           untilDate: nil
+                                              inMode: NSDefaultRunLoopMode
+                                             dequeue: YES])) {
+            NSEventType type = [event type];
 
-        if (type == NSEventTypeMouseMoved || type == NSEventTypeLeftMouseDragged ||
-            type == NSEventTypeRightMouseDragged || type == NSEventTypeOtherMouseDragged) {
+            if (type == NSEventTypeMouseMoved || type == NSEventTypeLeftMouseDragged ||
+                type == NSEventTypeRightMouseDragged || type == NSEventTypeOtherMouseDragged) {
 
             NSPoint p = [event locationInWindow];
             NSRect contentRect = [[win->window contentView]frame];
             win->input.mouse_x = p.x / contentRect.size.width;
             win->input.mouse_y = 1.0f - (p.y / contentRect.size.height); // Flip Y 
 
-        }
-        else if (type == NSEventTypeLeftMouseDown) { PW__UPDATE_MOUSE(win, 0, true); }
-        else if (type == NSEventTypeLeftMouseUp) { PW__UPDATE_MOUSE(win, 0, false); }
-        else if (type == NSEventTypeRightMouseDown) { PW__UPDATE_MOUSE(win, 1, true); }
-        else if (type == NSEventTypeRightMouseUp) { PW__UPDATE_MOUSE(win, 1, false); }
-        else if (type == NSEventTypeKeyDown && ![event isARepeat]) {
-            PW__UPDATE_KEY(win, pw__map_mac_key([event keyCode]), true);
-
-            if (!([event modifierFlags] & NSEventModifierFlagCommand)) {
-                continue; 
             }
-        }
-        else if (type == NSEventTypeKeyUp) {
-            PW__UPDATE_KEY(win, pw__map_mac_key([event keyCode]), false);
-        }
-        else if (type == NSEventTypeFlagsChanged) {
-            unsigned short raw_key = [event keyCode];
-            int mapped_key = pw__map_mac_key(raw_key);
+            else if (type == NSEventTypeLeftMouseDown) { PW__UPDATE_MOUSE(win, 0, true); }
+            else if (type == NSEventTypeLeftMouseUp) { PW__UPDATE_MOUSE(win, 0, false); }
+            else if (type == NSEventTypeRightMouseDown) { PW__UPDATE_MOUSE(win, 1, true); }
+            else if (type == NSEventTypeRightMouseUp) { PW__UPDATE_MOUSE(win, 1, false); }
+            else if (type == NSEventTypeKeyDown && ![event isARepeat]) {
+                PW__UPDATE_KEY(win, pw__map_mac_key([event keyCode]), true);
 
-            if (mapped_key > 0 && mapped_key < 512) {
-                // flagsChanged fires on both press and release, so we check the modifier flags
-                // to determine the actual state of the Shift key
-                bool is_down = ([event modifierFlags] & NSEventModifierFlagShift) != 0;
-
-                // NOTE: Adjust 'win->input' below to match whatever
-                // pointer name your header uses for the window/input state!
-                win->input.keys_down[mapped_key] = is_down;
-                if (is_down) {
-                    win->input.keys_pressed[mapped_key] = true;
+                if (!([event modifierFlags] & NSEventModifierFlagCommand)) {
+                    continue;
                 }
             }
-        }
+            else if (type == NSEventTypeKeyUp) {
+                PW__UPDATE_KEY(win, pw__map_mac_key([event keyCode]), false);
+            }
+            else if (type == NSEventTypeFlagsChanged) {
+                unsigned short raw_key = [event keyCode];
+                int mapped_key = pw__map_mac_key(raw_key);
 
-        [NSApp sendEvent : event];
-    }
-    return win->is_running;
+                if (mapped_key > 0 && mapped_key < 512) {
+                    bool is_down = false;
+                    NSEventModifierFlags flags = [event modifierFlags];
+
+                    if (mapped_key == PW_KEY_LSHIFT || mapped_key == PW_KEY_RSHIFT) {
+                        is_down = (flags & NSEventModifierFlagShift) != 0;
+                    } else if (mapped_key == PW_KEY_LCTRL || mapped_key == PW_KEY_RCTRL) {
+                        // Check both Command and Control since we map them both to LCTRL/RCTRL
+                        is_down = (flags & NSEventModifierFlagCommand) != 0 ||
+                                  (flags & NSEventModifierFlagControl) != 0;
+                    }
+
+                    win->input.keys_down[mapped_key] = is_down;
+                    if (is_down) {
+                        win->input.keys_pressed[mapped_key] = true;
+                    }
+                }
+            }
+
+            [NSApp sendEvent: event];
+        }
+        return win->is_running;
     }
 }
-
 void pw_update_window(PixelWindow* win, const uint8_t* rgb_buffer) {
     @autoreleasepool {
     int pixels = win->width * win->height;
