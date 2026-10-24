@@ -8,7 +8,7 @@ Linux X11/Wayland, and Windows (Win32). All CPU rendered, and cross-architecture
 You include `pixel_window.h` and you are good to go! See CMakeLists.txt for any linking considerations
 
 The core premise:
-```
+```c++
     // ...
     PixelWindow* win = pw_create_window(width, height, "Interactive Pixel Window", false);
     
